@@ -1,0 +1,22 @@
+#!/usr/bin/env bpftrace
+/*
+ * TraceForge optional Linux connection telemetry.
+ * Records connect() syscall metadata only. It does not inspect HTTP payloads,
+ * decrypt TLS, or measure the whole TCP handshake.
+ * Run: sudo bpftrace ebpf/connect.bt
+ */
+BEGIN
+{
+    printf("TraceForge: observing connect() syscalls; Ctrl-C to stop.\n");
+}
+tracepoint:syscalls:sys_enter_connect
+{
+    @started[tid] = nsecs;
+    printf("CONNECT_START pid=%d tid=%d comm=%s fd=%d\n", pid, tid, comm, args->fd);
+}
+tracepoint:syscalls:sys_exit_connect /@started[tid]/
+{
+    printf("CONNECT_END pid=%d tid=%d comm=%s syscall_duration_us=%llu result=%d\n",
+           pid, tid, comm, (nsecs - @started[tid]) / 1000, args->ret);
+    delete(@started[tid]);
+}
